@@ -1,0 +1,29 @@
+// See https://go.microsoft.com/fwlink/?LinkId=733558
+// for the documentation about the tasks.json format
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Build",
+			"command": "nix-shell --command 'yarn vscode:prepublish'",
+			"problemMatcher": "$tsc-watch",
+			"isBackground": true,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+		},
+		{
+			"type": "shell",
+			"label": "Package",
+			"command": "nix-shell --command 'vsce package'",
+			"problemMatcher": "$tsc-watch",
+			"isBackground": true,
+			"group": "build",
+			"dependsOn": [
+				"Build"
+			]
+		}
+	]
+}
