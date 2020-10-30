@@ -18,6 +18,10 @@
 			{
 				"command": "shell-command.getOutput",
 				"title": "Shell Command: Get Output"
+			},
+			{
+				"command": "shell-command.selectOutput",
+				"title": "Shell Command: Select Output"
 			}
 		]
 	},
