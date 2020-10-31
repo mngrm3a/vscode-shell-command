@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec, ExecException, ExecOptions, ExecOptionsWithStringEncoding } from "child_process";
+import { ShellCommand, execute, getCommandLine } from "./command";
 
 export function activate(context: vscode.ExtensionContext) {
 	let getOutputCommand = vscode.commands.registerCommand(
@@ -23,26 +23,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { }
 
-interface CommandOptions {
-	command: string
-	encoding?: BufferEncoding;
-	cwd?: string;
-	env?: NodeJS.ProcessEnv;
-}
-
 function command<R>(
 	mapper: (s: string) => R,
 	validator: (r: R) => boolean,
-	selector: (r: R) => Promise<string | undefined>): (commandOptions: CommandOptions) => Promise<string> {
-	return async commandOptions => {
+	selector: (r: R) => Promise<string | undefined>): (command: ShellCommand) => Promise<string> {
+	return async command => {
 		let answer;
 
 		try {
-			const result = await execCommand(commandOptions, mapper);
-			if (validator(result.stdout)) {
-				answer = await selector(result.stdout);
+			const stdout = mapper((await execute(command)).stdout);
+			if (validator(stdout)) {
+				answer = await selector(stdout);
 			} else {
-				vscode.window.showErrorMessage(`Command '${commandOptions.command}' did not produce output`);
+				vscode.window.showErrorMessage(`Command '${getCommandLine(command)}' did not produce output`);
 			}
 		} catch (error) {
 			if (error instanceof Error) {
@@ -55,29 +48,4 @@ function command<R>(
 
 		return answer ? answer : '';
 	};
-}
-
-async function execCommand<R>(commandOptions: CommandOptions, mapper: (s: string) => R): Promise<{ stdout: R, stderr: R }> {
-	return new Promise((resolve, reject) => {
-		const callback = (error: ExecException | null, stdout: string, stderr: string) => {
-			if (error) {
-				reject(error);
-			}
-			resolve({
-				stdout: mapper(stdout),
-				stderr: mapper(stderr)
-			});
-		};
-
-		const command = commandOptions.command;
-		const execOptions = commandOptions.encoding ?
-			commandOptions as ExecOptionsWithStringEncoding :
-			commandOptions as ExecOptions;
-
-		if (execOptions) {
-			exec(command, execOptions, callback);
-		} else {
-			exec(command, callback);
-		}
-	});
 }
