@@ -6,7 +6,7 @@
 		"url": "https://github.com/mngrm3a/vscode-shell-command"
 	},
 	"publisher": "mngrm3a",
-	"version": "0.0.1",
+	"version": "0.1.2",
 	"engines": {
 		"vscode": "^1.50.0"
 	},
@@ -14,18 +14,15 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:shell-command.getOutput"
+		"onCommand:shell-command.run",
+		"onCommand:shell-command.edit"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "shell-command.getOutput",
-				"title": "Shell Command: Get Output"
-			},
-			{
-				"command": "shell-command.selectOutput",
-				"title": "Shell Command: Select Output"
+				"command": "shell-command.edit",
+				"title": "Shell Command: Run"
 			}
 		]
 	},

@@ -1,61 +1,66 @@
-import { exec, ExecException, ExecOptions, ExecOptionsWithStringEncoding } from "child_process";
+import * as vscode from 'vscode';
+import { spawn, SpawnOptions, CommonOptions } from "child_process";
 
-export interface ShellCommand {
-  command?: string
-  encoding?: BufferEncoding
-  cwd?: string
-  env?: NodeJS.ProcessEnv
+export enum CaptureStream {
+  StdOut = 'stdout',
+  StdErr = 'stderr'
 }
 
-export interface ShellCommandResult {
-  stdout: string;
-  stderr: string;
+export interface CommandArgs extends CommonOptions {
+  cmd: string,
+  args?: string[]
+  capture?: CaptureStream
 }
 
+export async function runCommand(commandArgs: CommandArgs, stdin?: string): Promise<string> {
+  const args = commandArgs.args ? commandArgs.args : [];
+  const captureStream = commandArgs.capture ? commandArgs.capture : CaptureStream.StdOut;
+  const spawnOptions = {
+    ...(commandArgs as SpawnOptions),
+    cwd: commandArgs.cwd ?
+      commandArgs.cwd :
+      vscode.workspace.workspaceFolders ?
+        vscode.workspace.workspaceFolders[0].uri.fsPath :
+        undefined,
+    timeout: commandArgs.timeout ? commandArgs.timeout : 10 * 1000,
+    shell: true
+  };
 
-export async function execute(command: ShellCommand): Promise<ShellCommandResult> {
+  if (!commandArgs.cmd) {
+    throw new Error('Command must not be empty');
+  }
+
+  return spawnCommand(commandArgs.cmd, args, captureStream, spawnOptions, stdin);
+}
+
+async function spawnCommand(
+  command: string,
+  args: string[],
+  captureStream: CaptureStream,
+  spawnOptions: SpawnOptions,
+  stdin?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const callback = (error: ExecException | null, stdout: string, stderr: string) => {
-      if (error) {
-        reject(error);
+    const process = spawn(command, args, spawnOptions);
+    const outputStream = captureStream === CaptureStream.StdOut ?
+      process.stdout :
+      process.stderr;
+    let output = '';
+
+    process.on("error", (error) => reject(error));
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(`Command '${command}' terminated with exit code ${code}`));
       }
-      resolve({
-        stdout: stdout,
-        stderr: stderr
-      });
-    };
+    });
 
-    const commandString = getCommandLine(command);
-    const execOptions = getExecOptions(command);
+    outputStream?.on('data', (data) => output += data);
 
-    if (execOptions) {
-      exec(commandString, execOptions, callback);
-    } else {
-      exec(commandString, callback);
+    if (stdin) {
+      process.stdin?.write(stdin);
+      process.stdin?.end();
     }
   });
-}
-
-export class ShellCommandError extends Error {
-  constructor(message: string) {
-    super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
-    this.name = ShellCommandError.name;
-  }
-}
-
-export function getCommandLine(command: ShellCommand): string {
-  const commandLine = command.command;
-
-  if (commandLine) {
-    return commandLine;
-  }
-
-  throw new ShellCommandError('Command is empty');
-}
-
-function getExecOptions(command: ShellCommand): ExecOptions | ExecOptionsWithStringEncoding {
-  return command.encoding ?
-    command as ExecOptionsWithStringEncoding :
-    command as ExecOptions;
 }
